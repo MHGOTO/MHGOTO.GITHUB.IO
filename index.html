@@ -64,7 +64,7 @@
             font-weight: 600;
         }
 
-        /* User Section & Auth Form */
+        /* User Section */
         #userSection {
             padding: 20px; margin-bottom: 20px;
             display: flex; flex-direction: column; gap: 15px;
@@ -436,7 +436,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // הוספתי signInWithEmailAndPassword, createUserWithEmailAndPassword
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -502,7 +501,6 @@
                     
                     document.getElementById('loggedOutView').style.display = 'none';
                     document.getElementById('loggedInView').style.display = 'flex';
-                    // הצגת אימייל במקום שם אם אין שם (בהתחברות אימייל רגילה)
                     document.getElementById('userName').textContent = user.displayName || user.email.split('@')[0];
                     document.getElementById('userAvatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + (user.email || 'User');
                     
@@ -536,7 +534,7 @@
             });
         }
 
-        // --- התחברות אימייל וסיסמה (הפתרון הבטוח) ---
+        // --- התחברות אימייל וסיסמה ---
         async function emailLogin() {
             const email = document.getElementById('emailInput').value;
             const pass = document.getElementById('passwordInput').value;
@@ -551,12 +549,19 @@
                 await signInWithEmailAndPassword(auth, email, pass);
                 showToast("התחברת בהצלחה!");
             } catch (e) {
-                alert("שגיאה בהתחברות: " + e.message);
+                // תרגום שגיאות נפוצות לעברית
+                let msg = e.code;
+                if (e.code === 'auth/invalid-credential') msg = "פרטים שגויים (אימייל או סיסמה לא נכונים).";
+                else if (e.code === 'auth/invalid-email') msg = "כתובת אימייל לא תקינה.";
+                else msg = e.message;
+                
+                alert("שגיאה בהתחברות: " + msg);
                 btn.textContent = originalText;
                 btn.disabled = false;
             }
         }
 
+        // --- הרשמה חכמה (Sign Up + Smart Login) ---
         async function emailSignup() {
             const email = document.getElementById('emailInput').value;
             const pass = document.getElementById('passwordInput').value;
@@ -572,7 +577,21 @@
                 await createUserWithEmailAndPassword(auth, email, pass);
                 showToast("נרשמת בהצלחה!");
             } catch (e) {
-                alert("שגיאה בהרשמה: " + e.message);
+                // === התיקון הגדול ===
+                // אם האימייל תפוס, ננסה לחבר אותו במקום לצעוק שגיאה
+                if (e.code === 'auth/email-already-in-use') {
+                    try {
+                        console.log("משתמש קיים, מנסה להתחבר...");
+                        await signInWithEmailAndPassword(auth, email, pass);
+                        showToast("החשבון קיים, התחברת בהצלחה!");
+                        return; // יציאה כדי לא להגיע לשורות למטה
+                    } catch (loginError) {
+                        // אם גם ההתחברות נכשלה (סיסמה שגויה), נודיע למשתמש
+                        alert("האימייל הזה כבר רשום, אך הסיסמה שהקשת שגויה.");
+                    }
+                } else {
+                    alert("שגיאה בהרשמה: " + e.message);
+                }
                 btn.textContent = originalText;
                 btn.disabled = false;
             }
