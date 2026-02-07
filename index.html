@@ -438,9 +438,8 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // --- תיקון קריטי לשגיאת התמונה ---
-                // מגדיר לאפליקציה לזכור את המשתמש באופן מקומי (LocalPersistence)
-                // זה מונע את הצורך ב-Redirect שגורם לשגיאת Partitioning
+                // --- תיקון: שימוש ב-Local Persistence ו-Popup בלבד ---
+                // זה הפתרון היחיד שעוקף את שגיאת ה-Storage Partitioning ללא דומיין פרטי
                 await setPersistence(auth, browserLocalPersistence);
 
                 setupFirebaseListeners();
@@ -463,9 +462,11 @@
         function setupFirebaseListeners() {
             if (!auth) return;
             
+            // הצגת מצב טעינה בכפתור
+            const btn = document.getElementById('googleLoginBtn');
+            if(btn && !state.user) btn.textContent = 'מתחבר לשירות...';
+
             onAuthStateChanged(auth, (user) => {
-                const btn = document.getElementById('googleLoginBtn');
-                
                 if (user) {
                     console.log("משתמש זוהה:", user.email);
                     state.user = user;
@@ -514,23 +515,23 @@
         async function cloudLogin() {
             const btn = document.getElementById('googleLoginBtn');
             btn.disabled = true;
-            btn.innerHTML = '⏳ מתחבר...';
+            btn.innerHTML = '⏳ פותח חלון...';
 
             const provider = new GoogleAuthProvider();
 
             try {
-                // חייבים להשתמש ב-Popup!
-                // Redirect גורם לשגיאה ששלחת (storage partitioning)
+                // השיטה היחידה שעובדת ב-GitHub Pages ללא דומיין פרטי
                 await signInWithPopup(auth, provider);
                 showToast("התחברת בהצלחה!");
             } catch (error) {
                 console.error("שגיאת התחברות:", error);
                 
                 let msg = "שגיאה לא ידועה";
-                if (error.code === 'auth/popup-blocked') msg = "החלון הקופץ נחסם. אנא וודא שאין חוסם פרסומות ונסה שוב.";
-                if (error.code === 'auth/popup-closed-by-user') msg = "סגרת את החלון לפני סיום ההתחברות.";
+                if (error.code === 'auth/popup-blocked') msg = "החלון הקופץ נחסם. וודא שאין לך חוסם פרסומות ונסה שוב.";
+                if (error.code === 'auth/popup-closed-by-user') msg = "החלון נסגר לפני סיום ההתחברות.";
                 if (error.code === 'auth/unauthorized-domain') msg = "הדומיין לא מאושר ב-Firebase Console.";
-                
+                if (error.code === 'auth/operation-not-allowed') msg = "התחברות בגוגל לא מופעלת בפרויקט.";
+
                 alert("שגיאה בהתחברות:\n" + msg + "\n(" + error.code + ")");
             } finally {
                 btn.disabled = false;
