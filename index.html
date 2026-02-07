@@ -401,7 +401,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // הוספנו getRedirectResult ו-signInWithRedirect
         import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -431,35 +430,40 @@
         let app, auth, db;
 
         // === Initialization ===
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
+        async function initApp() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
 
-            // --- טיפול בחזרה מהפניה (חובה כדי ש-redirect יעבוד) ---
-            getRedirectResult(auth)
-                .then((result) => {
-                    if (result) {
-                        console.log("התחברות הצליחה דרך הפניה");
+                // בדיקה אם חזרנו מהפניה (Redirect)
+                try {
+                    const result = await getRedirectResult(auth);
+                    if (result && result.user) {
+                        console.log("התחברות הצליחה דרך הפניה:", result.user.displayName);
+                        showToast("ההתחברות הצליחה!");
                     }
-                })
-                .catch((error) => {
-                    console.error("שגיאת הפניה:", error);
-                    let msg = error.message;
-                    if(error.code === 'auth/unauthorized-domain') msg = "שגיאת דומיין: הכתובת הנוכחית לא מאושרת ב-Firebase Console";
-                    alert("שגיאת התחברות:\n" + msg);
-                });
+                } catch (error) {
+                    console.error("שגיאת חזרה מהפניה:", error);
+                    // התעלמות משגיאות שנובעות מכך שלא הייתה הפניה
+                }
 
-        } catch (e) { console.error("Firebase Init Error:", e); }
+                setupFirebaseListeners();
+
+            } catch (e) { 
+                console.error("Firebase Init Error:", e);
+                alert("שגיאה באתחול Firebase. וודא שיש לך חיבור לאינטרנט.");
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
+            initApp(); // הפעלת האתחול
             initTheme();
             loadLocalData();
             checkTrashExpiry(); 
             updateCategoryDropdowns();
             setupEventListeners();
             renderList();
-            setupFirebaseListeners();
         });
 
         // === Event Listeners ===
@@ -510,7 +514,7 @@
         function loadLocalData() {
             try {
                 const embedded = document.getElementById('app-state').textContent;
-                if(embedded) {
+                if(embedded && embedded.length > 5) {
                     const parsed = JSON.parse(embedded);
                     if (parsed.items) state.items = parsed.items;
                     if (parsed.trash) state.trash = parsed.trash;
@@ -543,7 +547,7 @@
             if(state.trash.length !== initialLen) saveData();
         }
 
-        // === Firebase ===
+        // === Firebase Logic & FIX ===
         function setupFirebaseListeners() {
             if (!auth) return;
             onAuthStateChanged(auth, (user) => {
@@ -551,33 +555,34 @@
                     state.user = user;
                     document.getElementById('loggedOutView').style.display = 'none';
                     document.getElementById('loggedInView').style.display = 'flex';
-                    document.getElementById('userName').textContent = user.displayName;
-                    document.getElementById('userAvatar').src = user.photoURL;
+                    document.getElementById('userName').textContent = user.displayName || 'משתמש';
+                    document.getElementById('userAvatar').src = user.photoURL || 'https://via.placeholder.com/40';
                     updateSyncStatus('syncing');
+                    
                     if (state.unsubscribe) state.unsubscribe();
                     state.unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
                         if (docSnap.exists()) {
                             const d = docSnap.data();
-                            if (JSON.stringify(d.items || []) !== JSON.stringify(state.items) || JSON.stringify(d.trash || []) !== JSON.stringify(state.trash)) {
+                            // מיזוג זהיר: אם המקומי חדש יותר או שהענן מעודכן
+                            if (JSON.stringify(d.items || []) !== JSON.stringify(state.items)) {
+                                console.log("נתונים התקבלו מהענן");
                                 state.items = d.items || [];
                                 state.trash = d.trash || [];
-                                saveData(true);
+                                saveData(true); // שמור ללוקאל, אל תדחוף חזרה
                                 updateCategoryDropdowns(); 
                                 renderList();
                             }
                             updateSyncStatus('online');
                         } else {
-                            // משתמש חדש
-                            state.items = [];
-                            state.trash = [];
-                            saveData(true); 
-                            pushToCloud();  
-                            renderList();
-                            updateCategoryDropdowns();
-                            updateSyncStatus('online');
-                            showToast("חשבון חדש נוצר בהצלחה!");
+                            // משתמש חדש - יצירת מסמך ראשוני
+                            pushToCloud().then(() => {
+                                showToast("פרופיל ענן נוצר בהצלחה!");
+                            });
                         }
-                    }, () => updateSyncStatus('error'));
+                    }, (err) => {
+                        console.error("Sync Error", err);
+                        updateSyncStatus('error');
+                    });
                 } else {
                     state.user = null;
                     if (state.unsubscribe) state.unsubscribe();
@@ -593,59 +598,50 @@
             });
         }
 
-        // === LOGIN LOGIC (THE FIX) ===
+        // === LOGIN FIX ===
         async function cloudLogin() {
             const btn = document.getElementById('googleLoginBtn');
             if(btn) {
                 btn.disabled = true;
-                btn.innerHTML = '⏳ מנסה חלון קופץ...';
+                btn.innerHTML = '⏳ מתחבר...';
             }
 
             const provider = new GoogleAuthProvider();
 
             try { 
-                // נסיון 1: חלון קופץ (המועדף)
+                // נסיון 1: Popup - הכי טוב לאפליקציות וקבצים מקומיים
                 await signInWithPopup(auth, provider);
+                // ההצלחה תטופל ב-onAuthStateChanged
             } catch (e) {
-                console.log("Popup failed, error code:", e.code);
+                console.warn("Popup blocked/failed:", e.code, e.message);
 
-                // זיהוי שגיאות של חסימת חלונות קופצים (באפליקציה/APK/טלפון)
-                if (e.code === 'auth/cancelled-popup-request' || 
-                    e.code === 'auth/popup-blocked' || 
-                    e.code === 'auth/popup-closed-by-user') {
-                    
-                    if(btn) btn.innerHTML = '🔄 עובר למסך מלא...';
-                    
-                    // נסיון 2: מעבר אוטומטי ל-Redirect (עובד ב-100% מהמקרים)
-                    try {
-                        await signInWithRedirect(auth, provider);
-                        // הדף יתרענן כאן, ה-Login יקרה בטעינה מחדש
-                    } catch (redirectError) {
-                         alert("שגיאה קריטית: " + redirectError.message);
-                         if(btn) {
-                             btn.disabled = false;
-                             btn.textContent = 'התחבר עם Google';
-                         }
-                    }
-                } 
-                // שגיאת דומיין (Authorized Domains)
-                else if (e.code === 'auth/unauthorized-domain') {
-                     alert("שגיאת דומיין (Unauthorized):\nהדומיין הנוכחי לא מאושר ב-Firebase.\nיש להוסיף אותו ב-Console.");
-                     if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
-                } 
-                // שגיאות אחרות
-                else {
-                    alert("שגיאה בהתחברות:\n" + e.message);
+                // בדיקה אם אנחנו רצים כקובץ מקומי
+                const isLocalFile = window.location.protocol === 'file:';
+
+                if (isLocalFile) {
+                    alert("שגיאה: חלון ההתחברות נחסם.\n\nמכיוון שאתה מריץ את הקובץ ישירות מהמחשב, אי אפשר לבצע 'הפניה' (Redirect).\n\nאנא וודא שהדפדפן מאפשר חלונות קופצים (Popups) לאתר זה ונסה שוב.");
                     if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
+                    return;
+                }
+
+                // אם אנחנו על שרת (localhost או אינטרנט), ננסה Redirect
+                try {
+                    if(confirm("החלון הקופץ נחסם. לעבור לדף ההתחברות המלא?")) {
+                        await signInWithRedirect(auth, provider);
+                    } else {
+                         if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
+                    }
+                } catch (redirectError) {
+                     alert("שגיאה קריטית: " + redirectError.message);
+                     if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
                 }
             }
         }
 
         async function cloudLogout() { 
-            if(auth) { 
-                if(confirm('האם אתה בטוח שברצונך להתנתק?')) {
-                    await signOut(auth); 
-                }
+            if(auth && confirm('האם אתה בטוח שברצונך להתנתק?')) {
+                await signOut(auth); 
+                window.location.reload();
             } 
         }
 
@@ -661,17 +657,22 @@
             if (!state.user || !db) return;
             updateSyncStatus('syncing');
             try {
-                await setDoc(doc(db, "users", state.user.uid), { items: state.items, trash: state.trash, lastUpdated: new Date().toISOString() });
+                await setDoc(doc(db, "users", state.user.uid), { items: state.items, trash: state.trash, lastUpdated: new Date().toISOString() }, { merge: true });
                 updateSyncStatus('online');
-            } catch (e) { updateSyncStatus('error'); }
+            } catch (e) { 
+                console.error("Push Error:", e);
+                updateSyncStatus('error'); 
+            }
         }
 
         function updateSyncStatus(status) {
             const el = document.getElementById('syncStatus');
             if(!el) return;
             const dot = el.querySelector('.status-dot');
-            dot.className = `status-dot ${status}`;
-            el.innerHTML = `<span class="status-dot ${status}"></span> ${status === 'online' ? 'מחובר' : status === 'syncing' ? 'מסנכרן...' : 'שגיאה'}`;
+            if(dot) dot.className = `status-dot ${status}`;
+            const text = status === 'online' ? 'מחובר' : status === 'syncing' ? 'מסנכרן...' : 'שגיאה';
+            // שמירה על הנקודה
+            el.innerHTML = `<span class="status-dot ${status}"></span> ${text}`;
         }
 
         // === Helpers ===
