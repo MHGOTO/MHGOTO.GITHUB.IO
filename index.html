@@ -401,7 +401,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        // הוספנו כאן signInWithRedirect ו-getRedirectResult
+        import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // === Configuration ===
@@ -435,10 +436,25 @@
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
+
+                // --- בדיקה קריטית: האם חזרנו מ-Redirect? ---
+                try {
+                    const result = await getRedirectResult(auth);
+                    if (result && result.user) {
+                        console.log("חזרנו בהצלחה מגוגל:", result.user.displayName);
+                        // אין צורך לעשות כלום, ה-onAuthStateChanged יתפוס את זה
+                    }
+                } catch (error) {
+                    console.error("שגיאת Redirect:", error);
+                    // אם זה קורה, הדומיין לא מאושר
+                    if (error.code === 'auth/unauthorized-domain') {
+                        alert("שגיאת דומיין חמורה:\nהכתובת הנוכחית לא מאושרת ב-Firebase.\nחובה להוסיף את mhgoto.github.io ב-Authorized Domains.");
+                    }
+                }
+
                 setupFirebaseListeners();
             } catch (e) { 
                 console.error("Firebase Init Error:", e);
-                // לא מציג אלרט כדי לא להפריע, רק שגיאה בקונסול
             }
         }
 
@@ -456,12 +472,11 @@
         function setupFirebaseListeners() {
             if (!auth) return;
             
-            // המאזין הזה הוא הלב של המערכת
             onAuthStateChanged(auth, (user) => {
+                const btn = document.getElementById('googleLoginBtn');
+                
                 if (user) {
-                    console.log("משתמש זוהה:", user.email);
                     state.user = user;
-                    
                     document.getElementById('loggedOutView').style.display = 'none';
                     document.getElementById('loggedInView').style.display = 'flex';
                     document.getElementById('userName').textContent = user.displayName || 'משתמש';
@@ -482,7 +497,6 @@
                             }
                             updateSyncStatus('online');
                         } else {
-                            // משתמש חדש
                             pushToCloud().then(() => showToast("פרופיל ענן נוצר!"));
                         }
                     }, (error) => {
@@ -490,11 +504,15 @@
                         updateSyncStatus('error');
                     });
                 } else {
-                    console.log("אין משתמש מחובר");
                     state.user = null;
                     if (state.unsubscribe) state.unsubscribe();
                     document.getElementById('loggedOutView').style.display = 'flex';
                     document.getElementById('loggedInView').style.display = 'none';
+                    
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'התחבר עם Google';
+                    }
                 }
             });
         }
@@ -502,25 +520,17 @@
         async function cloudLogin() {
             const btn = document.getElementById('googleLoginBtn');
             btn.disabled = true;
-            btn.innerHTML = '⏳ מתחבר...';
+            btn.innerHTML = '⏳ מעביר לגוגל...';
 
             const provider = new GoogleAuthProvider();
 
             try {
-                // ב-GitHub Pages הכי טוב להשתמש ב-Popup רגיל
-                await signInWithPopup(auth, provider);
-                showToast("התחברת בהצלחה!");
+                // שינוי ל-Redirect בלבד! הכי יציב ב-GitHub Pages
+                await signInWithRedirect(auth, provider);
+                // הקוד הזה לא ימשיך לרוץ כי הדף יתחלף
             } catch (error) {
                 console.error("שגיאת התחברות:", error);
-                
-                let msg = "שגיאה לא ידועה";
-                if (error.code === 'auth/popup-blocked') msg = "החלון הקופץ נחסם. אנא אפשר חלונות קופצים בדפדפן.";
-                if (error.code === 'auth/popup-closed-by-user') msg = "ביטלת את ההתחברות.";
-                if (error.code === 'auth/unauthorized-domain') msg = "הדומיין mhgoto.github.io לא מאושר ב-Firebase Console (ראה הוראות).";
-                if (error.code === 'auth/operation-not-allowed') msg = "התחברות בגוגל לא מופעלת בפרויקט.";
-
-                alert("שגיאה בהתחברות:\n" + msg + "\n\nקוד טכני: " + error.code);
-            } finally {
+                alert("שגיאה:\n" + error.message);
                 btn.disabled = false;
                 btn.textContent = 'התחבר עם Google';
             }
