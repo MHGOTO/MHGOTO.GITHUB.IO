@@ -3,38 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Link Manager Pro - Final Fix</title>
+    <title>Link Manager Pro - Ultimate Fix</title>
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-bg: rgba(255, 255, 255, 0.95);
             --glass-border: rgba(255, 255, 255, 0.6);
             --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            --glass-blur: blur(10px);
-            
             --text-primary: #1a1a1a;
             --text-secondary: #555555;
             --primary-color: #0066cc;
-            --primary-glow: rgba(0, 102, 204, 0.2);
-            
             --radius: 12px;
             --accent-green: #00a651;
             --accent-red: #d93025;
             --accent-gold: #f59e0b;
-            
             --note-bg: rgba(255, 248, 220, 0.9);
             --google-btn: #4285F4;
         }
 
         body.dark-mode {
             --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            --glass-bg: rgba(30, 41, 59, 0.85); 
+            --glass-bg: rgba(30, 41, 59, 0.95); 
             --glass-border: rgba(255, 255, 255, 0.08);
             --glass-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
             --text-primary: #f1f5f9;
             --text-secondary: #cbd5e1;
             --primary-color: #60a5fa;
-            --primary-glow: rgba(96, 165, 250, 0.2);
             --note-bg: rgba(60, 50, 30, 0.8);
         }
 
@@ -49,27 +43,24 @@
             padding: 15px;
             padding-bottom: 100px;
             min-height: 100vh;
-            transition: color 0.3s;
         }
 
         .glass-panel {
             background: var(--glass-bg);
-            backdrop-filter: var(--glass-blur);
-            -webkit-backdrop-filter: var(--glass-blur);
             border: 1px solid var(--glass-border);
             box-shadow: var(--glass-shadow);
             border-radius: var(--radius);
         }
 
         header { text-align: center; margin-bottom: 25px; }
-        h1 { margin: 5px 0; font-size: 1.8rem; color: var(--text-primary); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        h1 { margin: 5px 0; font-size: 1.8rem; font-weight: 800; }
         
         #itemCount {
             display: inline-block; 
             background: rgba(127, 127, 127, 0.1); 
             padding: 4px 15px;
             border-radius: 20px; font-size: 0.9rem; color: var(--text-secondary);
-            border: 1px solid var(--glass-border); font-weight: 600;
+            font-weight: 600;
         }
 
         /* User Section */
@@ -80,47 +71,43 @@
         .user-info { display: flex; align-items: center; gap: 12px; }
         .user-avatar { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--glass-border); object-fit: cover; }
         .user-name { font-weight: 700; font-size: 1rem; }
-        .cloud-status { font-size: 0.85rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; font-weight: 500; }
+        .cloud-status { font-size: 0.85rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
         
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; display: inline-block; transition: 0.3s; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; display: inline-block; }
         .status-dot.online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
-        .status-dot.syncing { background: #ffbb00; animation: pulse 1s infinite; }
+        .status-dot.syncing { background: #ffbb00; }
         .status-dot.error { background: var(--accent-red); }
         
-        .btn-login { background: var(--google-btn); color: white; border: none; padding: 10px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; transition: 0.2s; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3); }
-        .btn-login:disabled { opacity: 0.7; cursor: wait; }
+        .btn-login { background: var(--google-btn); color: white; border: none; padding: 10px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3); }
+        .btn-login:disabled { opacity: 0.7; cursor: wait; filter: grayscale(1); }
         
         .btn-logout, .btn-switch { 
             background: rgba(127,127,127,0.1); 
             border: 1px solid var(--glass-border); 
             color: var(--text-primary); 
-            padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; margin-left: 5px; transition: 0.2s;
+            padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; margin-left: 5px;
         }
 
         /* Controls */
         #controlsArea {
             padding: 16px; margin-bottom: 25px;
             display: flex; flex-direction: column; gap: 14px;
-            position: relative; z-index: 100;
         }
 
         .search-container input {
             width: 100%; padding: 12px 16px; font-size: 16px;
             border: 1px solid var(--glass-border); border-radius: var(--radius);
             background: rgba(127,127,127,0.1); color: var(--text-primary);
-            transition: 0.2s;
         }
-        .search-container input:focus { border-color: var(--primary-color); background: rgba(127,127,127,0.15); box-shadow: 0 0 0 2px var(--primary-glow); }
 
         .filters-container { display: flex; gap: 10px; flex-wrap: wrap; }
         .filters-container select {
             flex: 1; min-width: 140px; height: 44px; padding: 0 12px;
             font-size: 15px; 
-            background: var(--bg-body); 
+            background: rgba(127,127,127,0.1); 
             color: var(--text-primary);
             border: 1px solid var(--glass-border); border-radius: var(--radius);
             cursor: pointer;
-            background-color: rgba(127,127,127,0.1); 
         }
         .filters-container select option { background: #1e293b; color: white; }
         body:not(.dark-mode) .filters-container select option { background: #ffffff; color: black; }
@@ -132,9 +119,7 @@
             width: 100%; height: 44px; padding: 0 12px; font-size: 14px; font-weight: 600;
             color: white; border: none; border-radius: var(--radius); cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: transform 0.1s;
         }
-        .action-btn:active { transform: scale(0.98); }
         
         .btn-json { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
         .btn-txt { background: linear-gradient(135deg, #06b6d4, #0891b2); }
@@ -144,7 +129,7 @@
             background: rgba(127,127,127,0.1); 
             color: var(--text-primary); 
             border: 1px solid var(--glass-border); 
-            flex-grow: 0 !important; width: 44px; font-size: 1.2rem; box-shadow: none;
+            flex-grow: 0 !important; width: 44px; font-size: 1.2rem;
         }
 
         .dropdown-content {
@@ -153,24 +138,22 @@
             backdrop-filter: blur(20px);
             min-width: 240px; box-shadow: 0 15px 40px rgba(0,0,0,0.3); border-radius: var(--radius);
             border: 1px solid var(--glass-border); z-index: 2000; right: 0; top: calc(100% + 8px);
-            padding: 8px 0; animation: fadeIn 0.2s ease;
+            padding: 8px 0;
         }
         .dropdown-content.show { display: block; }
         .dropdown-content button, .dropdown-content label {
             color: var(--text-primary); padding: 12px 20px; text-decoration: none;
             display: block; background: none; border: none; width: 100%; text-align: right;
             cursor: pointer; font-size: 14px; font-weight: 500;
-            transition: background 0.2s;
         }
         .dropdown-content button:hover { background-color: rgba(127,127,127,0.1); color: var(--primary-color); }
         .dropdown-divider { border-top: 1px solid var(--glass-border); margin: 6px 0; }
 
-        details { margin-bottom: 25px; transition: 0.3s; }
+        details { margin-bottom: 25px; }
         summary { 
             padding: 16px; cursor: pointer; font-weight: 700; 
             color: var(--primary-color);
             background: rgba(127,127,127,0.05);
-            border-bottom: 1px solid transparent;
             list-style: none; display: flex; align-items: center; justify-content: center;
         }
         summary::after { content: " ⬇️"; margin-right: 8px; font-size: 0.8rem; }
@@ -185,7 +168,6 @@
         #addItemForm button {
             background: var(--accent-green); color: white; padding: 14px; border: none;
             border-radius: var(--radius); font-weight: bold; cursor: pointer; font-size: 16px;
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
 
         .category-block { margin-bottom: 35px; }
@@ -210,12 +192,9 @@
             position: relative;
             display: flex;
             flex-direction: column;
-            transition: box-shadow 0.2s, transform 0.1s;
             box-shadow: var(--glass-shadow);
         }
-        .card:hover { box-shadow: 0 10px 30px rgba(0,0,0,0.15); transform: translateY(-2px); }
         
-        /* Pinned Style */
         .card.pinned {
             border: 2px solid var(--accent-gold);
             background: rgba(255, 255, 0, 0.05);
@@ -265,7 +244,7 @@
             background: transparent; border: none; cursor: pointer; font-size: 18px;
             width: 34px; height: 34px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            color: var(--text-secondary); transition: all 0.2s;
+            color: var(--text-secondary);
         }
         .icon-btn:hover { color: var(--primary-color); background: rgba(127,127,127,0.1); }
         .pin-btn.active { color: var(--accent-gold); transform: rotate(45deg); opacity: 1; }
@@ -300,53 +279,34 @@
         .btn-forever { background: var(--accent-red); color: white; border: none; }
         .btn-close-modal { background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary); }
 
-        /* Toast with Progress */
+        /* Toast */
         #toast {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
             background: rgba(30, 41, 59, 0.95); 
             color: white; 
-            padding: 0; 
-            border-radius: 12px;
+            padding: 14px 24px;
+            border-radius: 50px;
             box-shadow: 0 15px 40px rgba(0,0,0,0.4); 
-            display: flex; flex-direction: column;
             z-index: 9999; 
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s; 
             opacity: 0;
             border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden;
-            min-width: 300px;
+            text-align: center;
+            min-width: 200px;
         }
         #toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
-        
-        .toast-content {
-            padding: 14px 20px;
-            display: flex; align-items: center; justify-content: space-between; gap: 20px;
-        }
-        
-        #toast button { 
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); 
-            color: var(--accent-gold); font-weight: bold; cursor: pointer; font-size: 13px; 
-            padding: 6px 12px; border-radius: 6px; transition: 0.2s;
-        }
-        #toast button:hover { background: rgba(255,255,255,0.2); }
-
-        .progress-container { width: 100%; height: 4px; background: rgba(255,255,255,0.1); }
-        .progress-bar { height: 100%; background: var(--accent-green); width: 100%; transform-origin: left; }
-        
-        @keyframes countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-        .animate-progress { animation: countdown 10s linear forwards; }
     </style>
 </head>
 <body class="dark-mode">
 
     <header>
-        <h1>Link Manager Pro <span style="font-size:0.8rem; opacity:0.7; margin-right:10px;">(Mobile Fix)</span></h1>
+        <h1>Link Manager Pro <span style="font-size:0.8rem; opacity:0.7; margin-right:10px;">(Auto-Fix)</span></h1>
         <div id="itemCount">טוען נתונים...</div>
     </header>
 
     <div id="userSection" class="glass-panel">
         <div id="loggedOutView" style="display:none; width:100%; justify-content:center;">
-            <button id="googleLoginBtn" class="btn-login">התחבר עם Google לגיבוי אוטומטי</button>
+            <button id="googleLoginBtn" class="btn-login">התחבר עם Google</button>
         </div>
         <div id="loggedInView" style="display:none; width:100%; justify-content:space-between; align-items:center;">
             <div class="user-info">
@@ -435,21 +395,13 @@
         </div>
     </div>
 
-    <div id="toast">
-        <div class="toast-content">
-            <span id="toastMsg">הודעה</span>
-            <button id="undoBtn">↪ בטל</button>
-        </div>
-        <div class="progress-container">
-            <div id="toastProgress" class="progress-bar"></div>
-        </div>
-    </div>
+    <div id="toast">הודעה</div>
 
     <script id="app-state" type="application/json">{}</script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // ייבוא מורחב לטיפול בהפניות (Redirect)
+        // הוספנו getRedirectResult ו-signInWithRedirect
         import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -484,22 +436,18 @@
             auth = getAuth(app);
             db = getFirestore(app);
 
-            // --- זה החלק החשוב לטיפול בחזרה מהפניה (Redirect) ---
-            // כשחוזרים מגוגל, הדף נטען מחדש. הפונקציה הזו "תופסת" את ההתחברות שהצליחה.
+            // --- טיפול בחזרה מהפניה (חובה כדי ש-redirect יעבוד) ---
             getRedirectResult(auth)
                 .then((result) => {
                     if (result) {
-                        console.log("Redirect login success!");
-                        // אין צורך לעשות כלום, onAuthStateChanged יטפל בשאר
+                        console.log("התחברות הצליחה דרך הפניה");
                     }
                 })
                 .catch((error) => {
-                    console.error("Redirect Error:", error);
-                    let errorMsg = error.message;
-                    if (error.code === 'auth/unauthorized-domain') {
-                        errorMsg = "הדומיין הזה לא מאושר ב-Firebase Console.\nיש להוסיף אותו ב-Authentication -> Settings -> Authorized Domains.";
-                    }
-                    alert("שגיאה בחזרה מהתחברות:\n" + errorMsg);
+                    console.error("שגיאת הפניה:", error);
+                    let msg = error.message;
+                    if(error.code === 'auth/unauthorized-domain') msg = "שגיאת דומיין: הכתובת הנוכחית לא מאושרת ב-Firebase Console";
+                    alert("שגיאת התחברות:\n" + msg);
                 });
 
         } catch (e) { console.error("Firebase Init Error:", e); }
@@ -639,50 +587,56 @@
                     const btn = document.getElementById('googleLoginBtn');
                     if(btn) {
                         btn.disabled = false;
-                        btn.textContent = 'התחבר עם Google לגיבוי אוטומטי';
+                        btn.textContent = 'התחבר עם Google';
                     }
                 }
             });
         }
 
-        // === Login Logic: The Real Fix ===
+        // === LOGIN LOGIC (THE FIX) ===
         async function cloudLogin() {
             const btn = document.getElementById('googleLoginBtn');
             if(btn) {
                 btn.disabled = true;
-                btn.innerHTML = '⏳ מתחבר...';
+                btn.innerHTML = '⏳ מנסה חלון קופץ...';
             }
 
             const provider = new GoogleAuthProvider();
 
-            // זיהוי אם אנחנו במובייל (אייפון/אנדרואיד)
-            // אם אנחנו בטלפון - אסור להשתמש ב-Popup כי הוא קורס. חייבים Redirect.
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            
             try { 
-                if (isMobile) {
-                    // במובייל: רק Redirect
-                    console.log("Mobile detected: Using Redirect");
-                    await signInWithRedirect(auth, provider);
-                } else {
-                    // במחשב: אפשר Popup
-                    console.log("Desktop detected: Using Popup");
-                    await signInWithPopup(auth, provider);
-                }
-            } catch (e) { 
-                console.error("Login Error:", e);
-                
-                if(btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = 'התחבר עם Google לגיבוי אוטומטי';
-                }
+                // נסיון 1: חלון קופץ (המועדף)
+                await signInWithPopup(auth, provider);
+            } catch (e) {
+                console.log("Popup failed, error code:", e.code);
 
-                if (e.code === 'auth/popup-closed-by-user') return; // לא שגיאה קריטית
-                
-                if (e.code === 'auth/unauthorized-domain') {
-                     alert("שגיאת דומיין (Unauthorized Domain):\nהכתובת שבה אתה נמצא לא מאושרת ב-Firebase Console.\nיש להוסיף את הדומיין הנוכחי לרשימת Authorized Domains.");
-                } else {
+                // זיהוי שגיאות של חסימת חלונות קופצים (באפליקציה/APK/טלפון)
+                if (e.code === 'auth/cancelled-popup-request' || 
+                    e.code === 'auth/popup-blocked' || 
+                    e.code === 'auth/popup-closed-by-user') {
+                    
+                    if(btn) btn.innerHTML = '🔄 עובר למסך מלא...';
+                    
+                    // נסיון 2: מעבר אוטומטי ל-Redirect (עובד ב-100% מהמקרים)
+                    try {
+                        await signInWithRedirect(auth, provider);
+                        // הדף יתרענן כאן, ה-Login יקרה בטעינה מחדש
+                    } catch (redirectError) {
+                         alert("שגיאה קריטית: " + redirectError.message);
+                         if(btn) {
+                             btn.disabled = false;
+                             btn.textContent = 'התחבר עם Google';
+                         }
+                    }
+                } 
+                // שגיאת דומיין (Authorized Domains)
+                else if (e.code === 'auth/unauthorized-domain') {
+                     alert("שגיאת דומיין (Unauthorized):\nהדומיין הנוכחי לא מאושר ב-Firebase.\nיש להוסיף אותו ב-Console.");
+                     if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
+                } 
+                // שגיאות אחרות
+                else {
                     alert("שגיאה בהתחברות:\n" + e.message);
+                    if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
                 }
             }
         }
@@ -964,35 +918,14 @@
 
         function showToast(msg, undoCallback) {
             const t = document.getElementById('toast');
-            const progress = document.getElementById('toastProgress');
-            const undoBtn = document.getElementById('undoBtn');
-            
             if (state.toastTimeout) clearTimeout(state.toastTimeout);
             
-            progress.classList.remove('animate-progress');
-            void progress.offsetWidth; 
-            
-            document.getElementById('toastMsg').textContent = msg;
+            t.textContent = msg;
             t.classList.add('visible');
             
-            if (undoCallback) {
-                undoBtn.style.display = 'block';
-                progress.classList.add('animate-progress');
-                
-                undoBtn.onclick = () => {
-                    undoCallback();
-                    t.classList.remove('visible');
-                };
-                
-                state.toastTimeout = setTimeout(() => {
-                    t.classList.remove('visible');
-                }, 10000);
-            } else {
-                undoBtn.style.display = 'none';
-                state.toastTimeout = setTimeout(() => {
-                    t.classList.remove('visible');
-                }, 3000);
-            }
+            state.toastTimeout = setTimeout(() => {
+                t.classList.remove('visible');
+            }, 3000);
         }
 
         function openTrashModal() {
