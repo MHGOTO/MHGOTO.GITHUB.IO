@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Link Manager Pro - Clean Start</title>
+    <title>Link Manager Pro - Hybrid</title>
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
@@ -88,7 +88,7 @@
         .status-dot.error { background: var(--accent-red); }
         
         .btn-login { background: var(--google-btn); color: white; border: none; padding: 10px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; transition: 0.2s; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3); }
-        .btn-login:disabled { opacity: 0.7; cursor: not-allowed; filter: grayscale(0.5); } /* נוסף: מצב מנוטרל */
+        .btn-login:disabled { opacity: 0.7; cursor: wait; }
         
         .btn-logout, .btn-switch { 
             background: rgba(127,127,127,0.1); 
@@ -335,14 +335,12 @@
         
         @keyframes countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
         .animate-progress { animation: countdown 10s linear forwards; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="dark-mode">
 
     <header>
-        <h1>Link Manager Pro <span style="font-size:0.8rem; opacity:0.7; margin-right:10px;">(Clean Start)</span></h1>
+        <h1>Link Manager Pro <span style="font-size:0.8rem; opacity:0.7; margin-right:10px;">(Hybrid)</span></h1>
         <div id="itemCount">טוען נתונים...</div>
     </header>
 
@@ -451,8 +449,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // וידוא ש-signInWithPopup נמצא בייבוא
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        // הוספנו את signInWithRedirect עבור מובייל
+        import { getAuth, signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // === Configuration ===
@@ -602,12 +600,11 @@
                             }
                             updateSyncStatus('online');
                         } else {
-                            // NEW USER LOGIC: FORCE EMPTY STATE
-                            // This prevents pushing local test data to a new user
+                            // משתמש חדש
                             state.items = [];
                             state.trash = [];
-                            saveData(true); // Wipe local
-                            pushToCloud();  // Init cloud with empty
+                            saveData(true); 
+                            pushToCloud();  
                             renderList();
                             updateCategoryDropdowns();
                             updateSyncStatus('online');
@@ -620,7 +617,6 @@
                     document.getElementById('loggedOutView').style.display = 'flex';
                     document.getElementById('loggedInView').style.display = 'none';
                     
-                    // איפוס הכפתור במקרה של התנתקות
                     const btn = document.getElementById('googleLoginBtn');
                     if(btn) {
                         btn.disabled = false;
@@ -630,10 +626,9 @@
             });
         }
 
-        // === Cloud Login / Logout Logic (Updated for APK) ===
+        // === Login Logic: Hybrid Approach ===
         async function cloudLogin() {
             const btn = document.getElementById('googleLoginBtn');
-            // 1. נטרול הכפתור למניעת לחיצות כפולות (חיוני ב-WebView/APK)
             if(btn) {
                 btn.disabled = true;
                 btn.innerHTML = '⏳ מתחבר...';
@@ -643,25 +638,28 @@
             provider.setCustomParameters({ prompt: 'select_account' });
             
             try { 
-                // שימוש בחלון קופץ
-                await signInWithPopup(auth, provider); 
-                // ההצלחה מטופלת ב-onAuthStateChanged
+                // בדיקה: האם המשתמש גולש דרך מובייל (טלפון) או טאבלט?
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                
+                if (isMobile) {
+                    // במובייל/אפליקציה: חובה להשתמש ב-Redirect כי Popup נחסם
+                    await signInWithRedirect(auth, provider);
+                } else {
+                    // במחשב: נשתמש ב-Popup (יותר נוח)
+                    await signInWithPopup(auth, provider);
+                }
             } catch (e) { 
                 console.error("Login Error:", e);
                 
-                // החזרת הכפתור למצב פעיל במקרה של שגיאה
                 if(btn) {
                     btn.disabled = false;
                     btn.innerHTML = 'התחבר עם Google לגיבוי אוטומטי';
                 }
 
-                if (e.code === 'auth/popup-closed-by-user') {
-                    // המשתמש סגר את החלון - לא נציג שגיאה
-                    return;
-                }
+                if (e.code === 'auth/popup-closed-by-user') return;
                 
                 if (e.code === 'auth/disallowed-useragent' || e.message.includes('disallowed_useragent')) {
-                    alert("שגיאת אבטחה של גוגל (403):\nהאפליקציה חוסמת חלונות קופצים מאובטחים.\nיש לוודא שה-APK מאפשר User Agent תקין או JavaScript Popups.");
+                    alert("שגיאת אבטחה של גוגל (403): האפליקציה חוסמת התחברות. נסה לפתוח את הקישור בדפדפן כרום רגיל.");
                 } else {
                     alert("שגיאה בהתחברות:\n" + e.message);
                 }
@@ -672,7 +670,6 @@
             if(auth) { 
                 if(confirm('האם אתה בטוח שברצונך להתנתק?')) {
                     await signOut(auth); 
-                    // אין צורך ב-reload, ה-listener יטפל בזה
                 }
             } 
         }
