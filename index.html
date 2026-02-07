@@ -1,6 +1,407 @@
-<script type="module">
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Link Manager Pro - Ultimate Fix</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --primary-color: #0066cc;
+            --radius: 12px;
+            --accent-green: #00a651;
+            --accent-red: #d93025;
+            --accent-gold: #f59e0b;
+            --note-bg: rgba(255, 248, 220, 0.9);
+            --google-btn: #4285F4;
+        }
+
+        body.dark-mode {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --glass-bg: rgba(30, 41, 59, 0.95); 
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --primary-color: #60a5fa;
+            --note-bg: rgba(60, 50, 30, 0.8);
+        }
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            margin: 0;
+            padding: 15px;
+            padding-bottom: 100px;
+            min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: var(--radius);
+        }
+
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { margin: 5px 0; font-size: 1.8rem; font-weight: 800; }
+        
+        #itemCount {
+            display: inline-block; 
+            background: rgba(127, 127, 127, 0.1); 
+            padding: 4px 15px;
+            border-radius: 20px; font-size: 0.9rem; color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* User Section */
+        #userSection {
+            padding: 12px; margin-bottom: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .user-info { display: flex; align-items: center; gap: 12px; }
+        .user-avatar { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--glass-border); object-fit: cover; }
+        .user-name { font-weight: 700; font-size: 1rem; }
+        .cloud-status { font-size: 0.85rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+        
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; display: inline-block; }
+        .status-dot.online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+        .status-dot.syncing { background: #ffbb00; }
+        .status-dot.error { background: var(--accent-red); }
+        
+        .btn-login { background: var(--google-btn); color: white; border: none; padding: 10px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3); }
+        .btn-login:disabled { opacity: 0.7; cursor: wait; filter: grayscale(1); }
+        
+        .btn-logout, .btn-switch { 
+            background: rgba(127,127,127,0.1); 
+            border: 1px solid var(--glass-border); 
+            color: var(--text-primary); 
+            padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; margin-left: 5px;
+        }
+
+        /* Controls */
+        #controlsArea {
+            padding: 16px; margin-bottom: 25px;
+            display: flex; flex-direction: column; gap: 14px;
+        }
+
+        .search-container input {
+            width: 100%; padding: 12px 16px; font-size: 16px;
+            border: 1px solid var(--glass-border); border-radius: var(--radius);
+            background: rgba(127,127,127,0.1); color: var(--text-primary);
+        }
+
+        .filters-container { display: flex; gap: 10px; flex-wrap: wrap; }
+        .filters-container select {
+            flex: 1; min-width: 140px; height: 44px; padding: 0 12px;
+            font-size: 15px; 
+            background: rgba(127,127,127,0.1); 
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border); border-radius: var(--radius);
+            cursor: pointer;
+        }
+        .filters-container select option { background: #1e293b; color: white; }
+        body:not(.dark-mode) .filters-container select option { background: #ffffff; color: black; }
+
+        .actions-container { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .dropdown { position: relative; display: inline-block; flex-grow: 1; }
+        
+        .action-btn {
+            width: 100%; height: 44px; padding: 0 12px; font-size: 14px; font-weight: 600;
+            color: white; border: none; border-radius: var(--radius); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        
+        .btn-json { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .btn-txt { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .btn-site { background: linear-gradient(135deg, #6366f1, #4f46e5); } 
+        .btn-trash-view { background: linear-gradient(135deg, #64748b, #475569); }
+        .btn-toggle { 
+            background: rgba(127,127,127,0.1); 
+            color: var(--text-primary); 
+            border: 1px solid var(--glass-border); 
+            flex-grow: 0 !important; width: 44px; font-size: 1.2rem;
+        }
+
+        .dropdown-content {
+            display: none; position: absolute; 
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            min-width: 240px; box-shadow: 0 15px 40px rgba(0,0,0,0.3); border-radius: var(--radius);
+            border: 1px solid var(--glass-border); z-index: 2000; right: 0; top: calc(100% + 8px);
+            padding: 8px 0;
+        }
+        .dropdown-content.show { display: block; }
+        .dropdown-content button, .dropdown-content label {
+            color: var(--text-primary); padding: 12px 20px; text-decoration: none;
+            display: block; background: none; border: none; width: 100%; text-align: right;
+            cursor: pointer; font-size: 14px; font-weight: 500;
+        }
+        .dropdown-content button:hover { background-color: rgba(127,127,127,0.1); color: var(--primary-color); }
+        .dropdown-divider { border-top: 1px solid var(--glass-border); margin: 6px 0; }
+
+        details { margin-bottom: 25px; }
+        summary { 
+            padding: 16px; cursor: pointer; font-weight: 700; 
+            color: var(--primary-color);
+            background: rgba(127,127,127,0.05);
+            list-style: none; display: flex; align-items: center; justify-content: center;
+        }
+        summary::after { content: " ⬇️"; margin-right: 8px; font-size: 0.8rem; }
+        details[open] summary { border-bottom: 1px solid var(--glass-border); }
+        details[open] summary::after { content: " ⬆️"; }
+        
+        #addItemForm { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        #addItemForm input, #addItemForm textarea {
+            padding: 12px; border: 1px solid var(--glass-border); border-radius: var(--radius);
+            background: rgba(127,127,127,0.05); color: var(--text-primary); width: 100%; font-size: 15px;
+        }
+        #addItemForm button {
+            background: var(--accent-green); color: white; padding: 14px; border: none;
+            border-radius: var(--radius); font-weight: bold; cursor: pointer; font-size: 16px;
+        }
+
+        .category-block { margin-bottom: 35px; }
+        .category-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 5px; margin-bottom: 15px;
+            border-bottom: 2px solid rgba(127,127,127,0.1);
+        }
+        .category-header h2 { margin: 0; font-size: 1.4rem; color: var(--text-primary); font-weight: 700; }
+        .category-badge {
+            background: rgba(127,127,127,0.1); color: var(--text-primary);
+            font-size: 0.85rem; padding: 4px 12px; border-radius: 12px; font-weight: 600;
+            border: 1px solid var(--glass-border);
+        }
+
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--glass-shadow);
+        }
+        
+        .card.pinned {
+            border: 2px solid var(--accent-gold);
+            background: rgba(255, 255, 0, 0.05);
+        }
+        
+        .card-index {
+            position: absolute; top: 12px; left: 12px; 
+            background: rgba(127,127,127,0.1);
+            color: var(--text-secondary); font-size: 11px; padding: 3px 8px;
+            border-radius: 6px; font-family: monospace; 
+        }
+        
+        .card-body { padding: 20px; padding-top: 40px; flex-grow: 1; }
+        .card-link {
+            display: block; color: var(--primary-color); font-weight: 700; text-decoration: none;
+            margin-bottom: 10px; word-break: break-all; font-size: 16px; line-height: 1.4;
+        }
+        .card-text-content {
+            background: rgba(127,127,127,0.05); padding: 12px; border-radius: 8px;
+            font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all;
+            border: 1px solid var(--glass-border);
+        }
+        .card-desc { font-size: 15px; color: var(--text-primary); opacity: 0.9; margin-top: 8px; line-height: 1.5; margin-bottom: 10px; }
+        
+        .card-note {
+            margin-top: 12px; padding: 10px; background-color: var(--note-bg);
+            color: #4a3b10; font-size: 13px; border-radius: 8px;
+            border-right: 4px solid var(--accent-gold); display: flex; gap: 8px;
+        }
+        .card-note::before { content: '📝'; }
+
+        .card-footer {
+            padding: 12px 20px; border-top: 1px solid var(--glass-border);
+            background: rgba(127,127,127,0.05);
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius);
+        }
+        
+        .tag-category {
+            font-size: 11px; background: rgba(127,127,127,0.1); color: var(--text-primary);
+            padding: 4px 10px; border-radius: 12px; border: 1px solid var(--glass-border); font-weight: 600;
+        }
+
+        .card-actions { display: flex; gap: 4px; position: relative; }
+        
+        .icon-btn {
+            background: transparent; border: none; cursor: pointer; font-size: 18px;
+            width: 34px; height: 34px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+        }
+        .icon-btn:hover { color: var(--primary-color); background: rgba(127,127,127,0.1); }
+        .pin-btn.active { color: var(--accent-gold); transform: rotate(45deg); opacity: 1; }
+        .trash-btn:hover { color: var(--accent-red); background: rgba(239, 68, 68, 0.1); }
+
+        .duplicate-badge { color: var(--accent-red); font-weight: bold; font-size: 12px; display: none; margin-left: 5px; background: rgba(239,68,68,0.1); padding: 2px 6px; border-radius: 4px; }
+        input[type="file"] { display: none; }
+
+        /* Trash Modal */
+        #trashModal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 3000; display: none;
+            justify-content: center; align-items: center; backdrop-filter: blur(5px);
+        }
+        #trashModal.open { display: flex; }
+        .modal-content {
+            background: var(--glass-bg); width: 90%; max-width: 600px; max-height: 80vh;
+            border-radius: var(--radius); border: 1px solid var(--glass-border);
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: var(--glass-shadow);
+        }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 20px; overflow-y: auto; flex-grow: 1; }
+        .trash-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; background: rgba(127,127,127,0.05); margin-bottom: 8px; border-radius: 8px;
+            border: 1px solid var(--glass-border);
+        }
+        .trash-info { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+        .trash-actions button { font-size: 0.8rem; margin-left: 5px; padding: 4px 8px; border-radius: 4px; cursor: pointer; border: 1px solid var(--glass-border); }
+        .btn-restore { background: var(--accent-green); color: white; border: none; }
+        .btn-forever { background: var(--accent-red); color: white; border: none; }
+        .btn-close-modal { background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary); }
+
+        /* Toast */
+        #toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: rgba(30, 41, 59, 0.95); 
+            color: white; 
+            padding: 14px 24px;
+            border-radius: 50px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4); 
+            z-index: 9999; 
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s; 
+            opacity: 0;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            min-width: 200px;
+        }
+        #toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <header>
+        <h1>Link Manager Pro <span style="font-size:0.8rem; opacity:0.7; margin-right:10px;">(Auto-Fix)</span></h1>
+        <div id="itemCount">טוען נתונים...</div>
+    </header>
+
+    <div id="userSection" class="glass-panel">
+        <div id="loggedOutView" style="display:none; width:100%; justify-content:center;">
+            <button id="googleLoginBtn" class="btn-login">התחבר עם Google</button>
+        </div>
+        <div id="loggedInView" style="display:none; width:100%; justify-content:space-between; align-items:center;">
+            <div class="user-info">
+                <img id="userAvatar" src="" class="user-avatar" alt="Avatar">
+                <div>
+                    <div id="userName" class="user-name">שם משתמש</div>
+                    <div id="syncStatus" class="cloud-status"><span class="status-dot"></span> מנותק</div>
+                </div>
+            </div>
+            <div>
+                <button id="switchAccountBtn" class="btn-switch">🔄 החלף חשבון</button>
+                <button id="logoutBtn" class="btn-logout">יציאה</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="controlsArea" class="glass-panel">
+        <div class="search-container">
+            <input type="search" id="searchInput" placeholder="🔍 חפש קישור, תיאור או קטגוריה... (חפש #10 למספר כרטיס)">
+        </div>
+
+        <div class="filters-container">
+            <select id="categoryFilter"><option value="">📂 כל הקטגוריות</option></select>
+            <select id="sortOrder">
+                <option value="date-new" selected>📅 תאריך (הכי חדש = הכי גבוה)</option>
+                <option value="name">🔤 שם (א-ת)</option>
+            </select>
+        </div>
+
+        <div class="actions-container">
+            <div class="dropdown">
+                <button class="action-btn btn-json drop-trigger" data-target="jsonMenu"><span>📂</span> ניהול JSON <span>▼</span></button>
+                <div id="jsonMenu" class="dropdown-content">
+                    <label for="importJsonInput">📥 ייבוא קובץ JSON</label>
+                    <input type="file" id="importJsonInput" accept=".json">
+                    <div class="dropdown-divider"></div>
+                    <button id="exportJsonBtn">📤 ייצוא לקובץ JSON</button>
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="action-btn btn-txt drop-trigger" data-target="txtMenu"><span>📄</span> ניהול טקסט <span>▼</span></button>
+                <div id="txtMenu" class="dropdown-content">
+                    <button id="exportTxtBtn">📤 ייצוא רשימה ל-TXT</button>
+                    <div class="dropdown-divider"></div>
+                    <label for="smartImportInput">🔄 <b>ייבוא חכם (מיזוג)</b></label>
+                    <input type="file" id="smartImportInput" accept=".txt">
+                </div>
+            </div>
+
+            <div class="dropdown">
+                <button class="action-btn btn-site drop-trigger" data-target="siteMenu"><span>💾</span> ניהול אתר <span>▼</span></button>
+                <div id="siteMenu" class="dropdown-content">
+                    <button id="downloadHtmlBtn"><span style="font-size:1.2em">🌐</span> שמור אתר מלא (HTML)</button>
+                    <button id="downloadSourceBtn"><span style="font-size:1.2em">💻</span> הורד קוד מקור (TXT)</button>
+                </div>
+            </div>
+
+            <button id="trashBtn" class="action-btn btn-trash-view" title="סל מחזור">🗑️ סל מחזור</button>
+            <button id="toggleDuplicatesBtn" class="action-btn btn-toggle" title="הצג/הסתר כפילויות">⚠️</button>
+            <button id="toggleDarkModeBtn" class="action-btn btn-toggle" title="מצב לילה">☀️</button>
+        </div>
+    </div>
+
+    <details class="glass-panel">
+        <summary>הוספת פריט חדש ידנית</summary>
+        <form id="addItemForm">
+            <textarea id="itemContent" rows="2" required placeholder="הדבק כאן קישור או פקודה..."></textarea>
+            <input type="text" id="itemDescription" placeholder="תיאור הפריט">
+            <input type="text" id="itemCategory" list="categoriesDatalist" placeholder="קטגוריה">
+            <datalist id="categoriesDatalist"></datalist>
+            <input type="text" id="itemNote" placeholder="הערה אישית (אופציונלי)">
+            <button type="submit">הוסף למאגר</button>
+        </form>
+    </details>
+
+    <div id="listContainer" class="list-container"></div>
+
+    <div id="trashModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🗑️ סל מחזור (נשמר ל-30 יום)</h3>
+                <button class="btn-close-modal">✖</button>
+            </div>
+            <div id="trashList" class="modal-body"></div>
+        </div>
+    </div>
+
+    <div id="toast">הודעה</div>
+
+    <script id="app-state" type="application/json">{}</script>
+
+    <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // === Configuration ===
@@ -34,20 +435,29 @@
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
+
+                // בדיקה אם חזרנו מהפניה (Redirect)
+                try {
+                    const result = await getRedirectResult(auth);
+                    if (result && result.user) {
+                        console.log("התחברות הצליחה דרך הפניה:", result.user.displayName);
+                        showToast("ההתחברות הצליחה!");
+                    }
+                } catch (error) {
+                    console.error("שגיאת חזרה מהפניה:", error);
+                    // התעלמות משגיאות שנובעות מכך שלא הייתה הפניה
+                }
+
                 setupFirebaseListeners();
+
             } catch (e) { 
                 console.error("Firebase Init Error:", e);
-                alert("שגיאה באתחול: " + e.message);
+                alert("שגיאה באתחול Firebase. וודא שיש לך חיבור לאינטרנט.");
             }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // בדיקה האם רצים על file://
-            if (window.location.protocol === 'file:') {
-                alert("שגיאה קריטית!\n\nגוגל חוסמת התחברות מקבצים מקומיים (file://).\n\nחובה להריץ את הקובץ דרך שרת מקומי (כמו Live Server ב-VS Code) או להעלות אותו לאינטרנט.");
-            }
-
-            initApp();
+            initApp(); // הפעלת האתחול
             initTheme();
             loadLocalData();
             checkTrashExpiry(); 
@@ -56,94 +466,7 @@
             renderList();
         });
 
-        // === Firebase Auth Logic ===
-        function setupFirebaseListeners() {
-            if (!auth) return;
-            
-            // המאזין הזה הוא הלב של המערכת - הוא מזהה מתי המשתמש נכנס
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    console.log("משתמש זוהה:", user.email);
-                    state.user = user;
-                    
-                    // עדכון ממשק משתמש
-                    document.getElementById('loggedOutView').style.display = 'none';
-                    document.getElementById('loggedInView').style.display = 'flex';
-                    document.getElementById('userName').textContent = user.displayName || 'משתמש';
-                    document.getElementById('userAvatar').src = user.photoURL || 'https://via.placeholder.com/40';
-                    
-                    updateSyncStatus('syncing');
-                    
-                    // טעינת נתונים
-                    if (state.unsubscribe) state.unsubscribe();
-                    state.unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
-                        if (docSnap.exists()) {
-                            const d = docSnap.data();
-                            if (JSON.stringify(d.items || []) !== JSON.stringify(state.items)) {
-                                state.items = d.items || [];
-                                state.trash = d.trash || [];
-                                saveData(true);
-                                updateCategoryDropdowns(); 
-                                renderList();
-                            }
-                            updateSyncStatus('online');
-                        } else {
-                            // יצירת מסמך ראשוני למשתמש חדש
-                            pushToCloud().then(() => showToast("פרופיל ענן נוצר!"));
-                        }
-                    }, (error) => {
-                        console.error("שגיאת סנכרון:", error);
-                        updateSyncStatus('error');
-                    });
-                } else {
-                    console.log("אין משתמש מחובר");
-                    state.user = null;
-                    if (state.unsubscribe) state.unsubscribe();
-                    document.getElementById('loggedOutView').style.display = 'flex';
-                    document.getElementById('loggedInView').style.display = 'none';
-                }
-            });
-        }
-
-        async function cloudLogin() {
-            const btn = document.getElementById('googleLoginBtn');
-            btn.disabled = true;
-            btn.innerHTML = '⏳ פותח חלון...';
-
-            const provider = new GoogleAuthProvider();
-
-            try {
-                // שימוש ב-Popup בלבד (הכי אמין לשרת מקומי)
-                const result = await signInWithPopup(auth, provider);
-                console.log("התחברות הצליחה:", result.user.displayName);
-                showToast("התחברת בהצלחה!");
-                // ה-onAuthStateChanged יטפל בשאר
-            } catch (error) {
-                console.error("שגיאת התחברות:", error);
-                
-                let msg = "שגיאה לא ידועה";
-                if (error.code === 'auth/popup-blocked') msg = "החלון הקופץ נחסם על ידי הדפדפן. אנא אפשר חלונות קופצים.";
-                if (error.code === 'auth/popup-closed-by-user') msg = "סגרת את החלון לפני סיום ההתחברות.";
-                if (error.code === 'auth/unauthorized-domain') msg = "הדומיין הזה לא מאושר ב-Firebase Console.\nוודא שהוספת את localhost או 127.0.0.1";
-                if (error.code === 'auth/operation-not-allowed') msg = "התחברות בגוגל לא מופעלת בפרויקט Firebase שלך.";
-
-                alert("שגיאה בהתחברות:\n" + msg + "\n\nקוד טכני: " + error.code);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'התחבר עם Google';
-            }
-        }
-
-        async function cloudLogout() { 
-            if(auth && confirm('האם אתה בטוח שברצונך להתנתק?')) {
-                await signOut(auth);
-                // רענון הדף כדי לאפס מצבים
-                window.location.reload();
-            } 
-        }
-
-        // === שאר הפונקציות ללא שינוי ===
-        
+        // === Event Listeners ===
         function setupEventListeners() {
             document.querySelectorAll('.drop-trigger').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -171,7 +494,7 @@
 
             document.getElementById('googleLoginBtn')?.addEventListener('click', cloudLogin);
             document.getElementById('logoutBtn')?.addEventListener('click', cloudLogout);
-            document.getElementById('switchAccountBtn')?.addEventListener('click', () => { cloudLogout().then(cloudLogin); });
+            document.getElementById('switchAccountBtn')?.addEventListener('click', switchAccount);
 
             ['importJsonInput', 'smartImportInput'].forEach(id => {
                 const el = document.getElementById(id);
@@ -187,6 +510,7 @@
             document.getElementById('downloadSourceBtn')?.addEventListener('click', downloadSource);
         }
 
+        // === Core Logic ===
         function loadLocalData() {
             try {
                 const embedded = document.getElementById('app-state').textContent;
@@ -223,6 +547,112 @@
             if(state.trash.length !== initialLen) saveData();
         }
 
+        // === Firebase Logic & FIX ===
+        function setupFirebaseListeners() {
+            if (!auth) return;
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    state.user = user;
+                    document.getElementById('loggedOutView').style.display = 'none';
+                    document.getElementById('loggedInView').style.display = 'flex';
+                    document.getElementById('userName').textContent = user.displayName || 'משתמש';
+                    document.getElementById('userAvatar').src = user.photoURL || 'https://via.placeholder.com/40';
+                    updateSyncStatus('syncing');
+                    
+                    if (state.unsubscribe) state.unsubscribe();
+                    state.unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+                        if (docSnap.exists()) {
+                            const d = docSnap.data();
+                            // מיזוג זהיר: אם המקומי חדש יותר או שהענן מעודכן
+                            if (JSON.stringify(d.items || []) !== JSON.stringify(state.items)) {
+                                console.log("נתונים התקבלו מהענן");
+                                state.items = d.items || [];
+                                state.trash = d.trash || [];
+                                saveData(true); // שמור ללוקאל, אל תדחוף חזרה
+                                updateCategoryDropdowns(); 
+                                renderList();
+                            }
+                            updateSyncStatus('online');
+                        } else {
+                            // משתמש חדש - יצירת מסמך ראשוני
+                            pushToCloud().then(() => {
+                                showToast("פרופיל ענן נוצר בהצלחה!");
+                            });
+                        }
+                    }, (err) => {
+                        console.error("Sync Error", err);
+                        updateSyncStatus('error');
+                    });
+                } else {
+                    state.user = null;
+                    if (state.unsubscribe) state.unsubscribe();
+                    document.getElementById('loggedOutView').style.display = 'flex';
+                    document.getElementById('loggedInView').style.display = 'none';
+                    
+                    const btn = document.getElementById('googleLoginBtn');
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'התחבר עם Google';
+                    }
+                }
+            });
+        }
+
+        // === LOGIN FIX ===
+        async function cloudLogin() {
+            const btn = document.getElementById('googleLoginBtn');
+            if(btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ מתחבר...';
+            }
+
+            const provider = new GoogleAuthProvider();
+
+            try { 
+                // נסיון 1: Popup - הכי טוב לאפליקציות וקבצים מקומיים
+                await signInWithPopup(auth, provider);
+                // ההצלחה תטופל ב-onAuthStateChanged
+            } catch (e) {
+                console.warn("Popup blocked/failed:", e.code, e.message);
+
+                // בדיקה אם אנחנו רצים כקובץ מקומי
+                const isLocalFile = window.location.protocol === 'file:';
+
+                if (isLocalFile) {
+                    alert("שגיאה: חלון ההתחברות נחסם.\n\nמכיוון שאתה מריץ את הקובץ ישירות מהמחשב, אי אפשר לבצע 'הפניה' (Redirect).\n\nאנא וודא שהדפדפן מאפשר חלונות קופצים (Popups) לאתר זה ונסה שוב.");
+                    if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
+                    return;
+                }
+
+                // אם אנחנו על שרת (localhost או אינטרנט), ננסה Redirect
+                try {
+                    if(confirm("החלון הקופץ נחסם. לעבור לדף ההתחברות המלא?")) {
+                        await signInWithRedirect(auth, provider);
+                    } else {
+                         if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
+                    }
+                } catch (redirectError) {
+                     alert("שגיאה קריטית: " + redirectError.message);
+                     if(btn) { btn.disabled = false; btn.textContent = 'התחבר עם Google'; }
+                }
+            }
+        }
+
+        async function cloudLogout() { 
+            if(auth && confirm('האם אתה בטוח שברצונך להתנתק?')) {
+                await signOut(auth); 
+                window.location.reload();
+            } 
+        }
+
+        async function switchAccount() { 
+            if(confirm('החלף חשבון?')) { 
+                if (state.unsubscribe) state.unsubscribe(); 
+                await signOut(auth); 
+                cloudLogin(); 
+            } 
+        }
+
         async function pushToCloud() {
             if (!state.user || !db) return;
             updateSyncStatus('syncing');
@@ -241,9 +671,11 @@
             const dot = el.querySelector('.status-dot');
             if(dot) dot.className = `status-dot ${status}`;
             const text = status === 'online' ? 'מחובר' : status === 'syncing' ? 'מסנכרן...' : 'שגיאה';
+            // שמירה על הנקודה
             el.innerHTML = `<span class="status-dot ${status}"></span> ${text}`;
         }
 
+        // === Helpers ===
         function escapeHtml(text) { return text ? text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ''; }
         function closeAllMenus() { document.querySelectorAll('.dropdown-content, .drop-trigger').forEach(el => el.classList.remove('show', 'active')); }
 
@@ -271,6 +703,7 @@
             else select.value = "";
         }
 
+        // === Render Logic ===
         function renderList() {
             const container = document.getElementById('listContainer');
             if(!container) return;
@@ -304,9 +737,18 @@
             const searchNum = isHashSearch ? parseInt(query.replace(/\D/g, '')) : null;
 
             let filtered = sortedFullList.filter(i => {
-                if (isHashSearch) return i.visualIndex === searchNum;
+                if (isHashSearch) {
+                    return i.visualIndex === searchNum;
+                }
+                
                 if (!state.showDuplicates && i.isDup && state.items.indexOf(i) !== state.items.findIndex(x => x.content.toLowerCase() === i.content.toLowerCase())) return false;
-                const matchesSearch = !query || i.content.toLowerCase().includes(query) || i.description.toLowerCase().includes(query) || i.category.toLowerCase().includes(query) || (i.note && i.note.toLowerCase().includes(query));
+                
+                const matchesSearch = !query || 
+                                      i.content.toLowerCase().includes(query) || 
+                                      i.description.toLowerCase().includes(query) || 
+                                      i.category.toLowerCase().includes(query) || 
+                                      (i.note && i.note.toLowerCase().includes(query));
+                
                 const matchesCat = !catFilter || i.category === catFilter;
                 return matchesSearch && matchesCat;
             });
@@ -347,7 +789,9 @@
                     const itemA = groups[catA][0];
                     const itemB = groups[catB][0];
                     return itemB.date.localeCompare(itemA.date);
-                } else return catA.localeCompare(catB);
+                } else {
+                    return catA.localeCompare(catB);
+                }
             });
 
             sortedCategories.forEach(cat => {
@@ -577,3 +1021,5 @@
         function toggleTheme() { document.body.classList.toggle('dark-mode'); localStorage.setItem(STORAGE_KEY+'_theme', document.body.classList.contains('dark-mode')?'dark':'light'); document.getElementById('toggleDarkModeBtn').textContent=document.body.classList.contains('dark-mode')?'☀️':'🌙'; }
         function toggleDuplicates() { state.showDuplicates=!state.showDuplicates; renderList(); }
     </script>
+</body>
+</html>
