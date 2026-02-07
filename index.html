@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Link Manager Pro - Hybrid</title>
+    <title>Link Manager Pro - Smart Login</title>
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
@@ -340,7 +340,7 @@
 <body class="dark-mode">
 
     <header>
-        <h1>Link Manager Pro <span style="font-size:0.8rem; opacity:0.7; margin-right:10px;">(Hybrid)</span></h1>
+        <h1>Link Manager Pro <span style="font-size:0.8rem; opacity:0.7; margin-right:10px;">(Auto-Fix)</span></h1>
         <div id="itemCount">טוען נתונים...</div>
     </header>
 
@@ -449,8 +449,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // הוספנו את signInWithRedirect עבור מובייל
-        import { getAuth, signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        // הוספנו getRedirectResult כדי לטפל בחזרה מהפניה
+        import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // === Configuration ===
@@ -483,6 +483,18 @@
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
+            
+            // בדיקה אם חזרנו מהפניה (Redirect)
+            getRedirectResult(auth).then((result) => {
+                if (result) {
+                    console.log("Login successful via redirect");
+                    // הטיפול נעשה ב-onAuthStateChanged, אבל כאן אפשר לתפוס שגיאות ספציפיות
+                }
+            }).catch((error) => {
+                console.error("Redirect Error:", error);
+                alert("שגיאה בהתחברות:\n" + error.message);
+            });
+            
         } catch (e) { console.error("Firebase Init Error:", e); }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -626,42 +638,44 @@
             });
         }
 
-        // === Login Logic: Hybrid Approach ===
+        // === Smart Login Logic (Fix for immediate close) ===
         async function cloudLogin() {
             const btn = document.getElementById('googleLoginBtn');
             if(btn) {
                 btn.disabled = true;
-                btn.innerHTML = '⏳ מתחבר...';
+                btn.innerHTML = '⏳ מנסה חלון קופץ...';
             }
 
             const provider = new GoogleAuthProvider();
-            provider.setCustomParameters({ prompt: 'select_account' });
+            // הסרנו את prompt: select_account שגורם לבעיות בחלק מהמכשירים
             
             try { 
-                // בדיקה: האם המשתמש גולש דרך מובייל (טלפון) או טאבלט?
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                // שלב 1: מנסים חלון קופץ (העדפה שלך)
+                await signInWithPopup(auth, provider);
+            } catch (e) {
+                console.log("Popup failed, trying redirect...", e.code);
                 
-                if (isMobile) {
-                    // במובייל/אפליקציה: חובה להשתמש ב-Redirect כי Popup נחסם
-                    await signInWithRedirect(auth, provider);
+                // שלב 2: אם החלון נסגר מיד או נחסם, עוברים להפניה (Redirect)
+                if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-blocked') {
+                    if(btn) btn.innerHTML = '🔄 מעביר להתחברות...';
+                    try {
+                        await signInWithRedirect(auth, provider);
+                    } catch (redirectError) {
+                         console.error("Redirect Error:", redirectError);
+                         alert("שגיאה גם בהפניה: " + redirectError.message);
+                         if(btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = 'התחבר עם Google לגיבוי אוטומטי';
+                         }
+                    }
                 } else {
-                    // במחשב: נשתמש ב-Popup (יותר נוח)
-                    await signInWithPopup(auth, provider);
-                }
-            } catch (e) { 
-                console.error("Login Error:", e);
-                
-                if(btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = 'התחבר עם Google לגיבוי אוטומטי';
-                }
-
-                if (e.code === 'auth/popup-closed-by-user') return;
-                
-                if (e.code === 'auth/disallowed-useragent' || e.message.includes('disallowed_useragent')) {
-                    alert("שגיאת אבטחה של גוגל (403): האפליקציה חוסמת התחברות. נסה לפתוח את הקישור בדפדפן כרום רגיל.");
-                } else {
+                    // שגיאה אמיתית אחרת
+                    console.error("Login Error:", e);
                     alert("שגיאה בהתחברות:\n" + e.message);
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = 'התחבר עם Google לגיבוי אוטומטי';
+                    }
                 }
             }
         }
