@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Link Manager Pro</title>
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkxpbmsgTWFuYWdlciBQcm8iLAogICJzaG9ydF9uYW1lIjogIkxpbmtzIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMxZTI5M2IiLAogICJ0aGVtZV9jb2xvciIjogIiMwMDY2Y2MiCn0=">
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
@@ -401,8 +402,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // שימוש ב-signInWithPopup + הגדרת PERSISTENCE
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        // הוספתי את כל הפונקציות הנדרשות
+        import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // === Configuration ===
@@ -437,14 +438,35 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // --- חובה: הגדרת שמירת התחברות לוקאלית ---
-                // זה מונע את הצורך להתחבר כל פעם מחדש באפליקציות PWA
+                // הגדרת שמירת חיבור מקומית (קריטי לאפליקציות)
                 await setPersistence(auth, browserLocalPersistence);
+
+                // בדיקה אם חזרנו מ-Redirect (קריטי לטלפונים)
+                checkRedirectReturn();
 
                 setupFirebaseListeners();
             } catch (e) { 
                 console.error("Firebase Init Error:", e);
-                // שקט בשגיאות אתחול
+            }
+        }
+
+        async function checkRedirectReturn() {
+            const btn = document.getElementById('googleLoginBtn');
+            try {
+                // בדיקה האם המשתמש בדיוק חזר מגוגל
+                const result = await getRedirectResult(auth);
+                if (result && result.user) {
+                    showToast("ההתחברות הצליחה! טוען נתונים...");
+                }
+            } catch (error) {
+                console.error("Redirect Error:", error);
+                if(btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'התחבר עם Google';
+                }
+                if (error.code === 'auth/unauthorized-domain') {
+                    alert("שגיאה: הדומיין לא מאושר ב-Firebase. וודא שהוספת את mhgoto.github.io ב-Console");
+                }
             }
         }
 
@@ -462,12 +484,12 @@
         function setupFirebaseListeners() {
             if (!auth) return;
             
-            // המאזין הזה הוא הלב של המערכת
+            // הצגת מצב "טעינה" אם אין עדיין משתמש
+            const btn = document.getElementById('googleLoginBtn');
+            if(btn && !state.user) btn.textContent = 'בודק חיבור...';
+
             onAuthStateChanged(auth, (user) => {
-                const btn = document.getElementById('googleLoginBtn');
-                
                 if (user) {
-                    console.log("משתמש זוהה:", user.email);
                     state.user = user;
                     
                     document.getElementById('loggedOutView').style.display = 'none';
@@ -490,7 +512,6 @@
                             }
                             updateSyncStatus('online');
                         } else {
-                            // משתמש חדש
                             pushToCloud().then(() => showToast("פרופיל ענן נוצר!"));
                         }
                     }, (error) => {
@@ -498,7 +519,6 @@
                         updateSyncStatus('error');
                     });
                 } else {
-                    console.log("אין משתמש מחובר");
                     state.user = null;
                     if (state.unsubscribe) state.unsubscribe();
                     document.getElementById('loggedOutView').style.display = 'flex';
@@ -512,29 +532,30 @@
             });
         }
 
+        // זיהוי האם מדובר בטלפון נייד
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
         async function cloudLogin() {
             const btn = document.getElementById('googleLoginBtn');
             btn.disabled = true;
-            btn.innerHTML = '⏳ פותח חלון...';
+            btn.innerHTML = '⏳ מתחבר...';
 
             const provider = new GoogleAuthProvider();
 
             try {
-                // חזרה ל-Popup! זה הדבר היחיד שעובד ב-PWA/Standalone
-                // אבל עם טיפול טוב יותר בשגיאות
-                await signInWithPopup(auth, provider);
-                showToast("התחברת בהצלחה!");
+                if (isMobile()) {
+                    // בטלפון: חייבים Redirect כדי לשמור על הזיכרון באפליקציה
+                    // זה יעביר אותך לגוגל, ואז יחזיר אותך לאפליקציה
+                    await signInWithRedirect(auth, provider);
+                } else {
+                    // במחשב: אפשר להשתמש בחלון קופץ
+                    await signInWithPopup(auth, provider);
+                }
             } catch (error) {
-                console.error("שגיאת התחברות:", error);
-                
-                let msg = "שגיאה לא ידועה";
-                if (error.code === 'auth/popup-blocked') msg = "החלון הקופץ נחסם. וודא שאין לך חוסם פרסומות ונסה שוב.";
-                if (error.code === 'auth/popup-closed-by-user') msg = "החלון נסגר לפני סיום ההתחברות. אנא נסה שוב ואל תסגור את החלון.";
-                if (error.code === 'auth/unauthorized-domain') msg = "הדומיין לא מאושר ב-Firebase Console.";
-                if (error.code === 'auth/operation-not-allowed') msg = "התחברות בגוגל לא מופעלת בפרויקט.";
-
-                alert("שגיאה בהתחברות:\n" + msg + "\n\n(" + error.code + ")");
-            } finally {
+                console.error("Login Error:", error);
+                alert("שגיאה בהתחברות: " + error.message);
                 btn.disabled = false;
                 btn.textContent = 'התחבר עם Google';
             }
@@ -547,8 +568,7 @@
             } 
         }
 
-        // === Standard App Functions ===
-        
+        // === Standard App Functions (No Changes) ===
         function setupEventListeners() {
             document.querySelectorAll('.drop-trigger').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -562,22 +582,18 @@
                 });
             });
             window.addEventListener('click', () => closeAllMenus());
-
             document.getElementById('searchInput')?.addEventListener('input', () => window.requestAnimationFrame(renderList));
             document.getElementById('categoryFilter')?.addEventListener('change', renderList);
             document.getElementById('sortOrder')?.addEventListener('change', renderList);
             document.getElementById('addItemForm')?.addEventListener('submit', handleAdd);
-            
             document.getElementById('toggleDarkModeBtn')?.addEventListener('click', toggleTheme);
             document.getElementById('toggleDuplicatesBtn')?.addEventListener('click', toggleDuplicates);
             document.getElementById('trashBtn')?.addEventListener('click', openTrashModal);
             document.querySelector('.btn-close-modal')?.addEventListener('click', closeTrashModal);
             document.getElementById('trashModal')?.addEventListener('click', (e) => { if(e.target.id === 'trashModal') closeTrashModal(); });
-
             document.getElementById('googleLoginBtn')?.addEventListener('click', cloudLogin);
             document.getElementById('logoutBtn')?.addEventListener('click', cloudLogout);
             document.getElementById('switchAccountBtn')?.addEventListener('click', () => { cloudLogout().then(cloudLogin); });
-
             ['importJsonInput', 'smartImportInput'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) {
@@ -585,13 +601,11 @@
                     el.addEventListener('change', id === 'importJsonInput' ? importJson : smartImport);
                 }
             });
-
             document.getElementById('exportJsonBtn')?.addEventListener('click', exportJson);
             document.getElementById('exportTxtBtn')?.addEventListener('click', exportTxt);
             document.getElementById('downloadHtmlBtn')?.addEventListener('click', downloadSite);
             document.getElementById('downloadSourceBtn')?.addEventListener('click', downloadSource);
         }
-
         function loadLocalData() {
             try {
                 const embedded = document.getElementById('app-state').textContent;
@@ -611,12 +625,10 @@
                 } catch(e) {} 
             }
         }
-
         function saveData(skipCloud = false) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({ items: state.items, trash: state.trash }));
             if (!skipCloud && state.user && db) pushToCloud();
         }
-
         function checkTrashExpiry() {
             const now = new Date();
             const initialLen = state.trash.length;
@@ -627,7 +639,6 @@
             });
             if(state.trash.length !== initialLen) saveData();
         }
-
         async function pushToCloud() {
             if (!state.user || !db) return;
             updateSyncStatus('syncing');
@@ -639,7 +650,6 @@
                 updateSyncStatus('error'); 
             }
         }
-
         function updateSyncStatus(status) {
             const el = document.getElementById('syncStatus');
             if(!el) return;
@@ -648,66 +658,52 @@
             const text = status === 'online' ? 'מחובר' : status === 'syncing' ? 'מסנכרן...' : 'שגיאה';
             el.innerHTML = `<span class="status-dot ${status}"></span> ${text}`;
         }
-
         function escapeHtml(text) { return text ? text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ''; }
         function closeAllMenus() { document.querySelectorAll('.dropdown-content, .drop-trigger').forEach(el => el.classList.remove('show', 'active')); }
-
         function updateCategoryDropdowns() {
             const cats = new Set(state.items.map(i => i.category));
             const select = document.getElementById('categoryFilter');
             const datalist = document.getElementById('categoriesDatalist');
-            
             if(!select || !datalist) return;
-
             const currentVal = select.value;
             let html = '<option value="">📂 כל הקטגוריות</option>';
             let listHtml = '';
-            
             [...cats].sort().forEach(c => {
                 const s = escapeHtml(c);
                 html += `<option value="${s}">${s}</option>`;
                 listHtml += `<option value="${s}">`;
             });
-
             select.innerHTML = html;
             datalist.innerHTML = listHtml;
-            
             if(currentVal && cats.has(currentVal)) select.value = currentVal;
             else select.value = "";
         }
-
         function renderList() {
             const container = document.getElementById('listContainer');
             if(!container) return;
             container.innerHTML = '';
-            
             const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
             const catFilter = document.getElementById('categoryFilter')?.value || '';
             const sort = document.getElementById('sortOrder')?.value || 'date-new';
-
             let sortedFullList = [...state.items];
             const baseSort = (a, b) => {
                 if (sort === 'name') return a.content.localeCompare(b.content);
                 return b.date.localeCompare(a.date); 
             };
             sortedFullList.sort(baseSort);
-
             const total = sortedFullList.length;
             sortedFullList.forEach((item, index) => {
                 if (sort === 'date-new') item.visualIndex = total - index;
                 else item.visualIndex = index + 1;
             });
-
             const seen = new Set(), dups = new Set();
             sortedFullList.forEach(i => {
                 const k = i.content.toLowerCase().trim();
                 if (seen.has(k)) { i.isDup = true; dups.add(k); } else { i.isDup = false; seen.add(k); }
             });
             sortedFullList.forEach(i => { if(dups.has(i.content.toLowerCase().trim())) i.isDup = true; });
-
             const isHashSearch = /^#\s*\d+$/.test(query);
             const searchNum = isHashSearch ? parseInt(query.replace(/\D/g, '')) : null;
-
             let filtered = sortedFullList.filter(i => {
                 if (isHashSearch) return i.visualIndex === searchNum;
                 if (!state.showDuplicates && i.isDup && state.items.indexOf(i) !== state.items.findIndex(x => x.content.toLowerCase() === i.content.toLowerCase())) return false;
@@ -715,17 +711,13 @@
                 const matchesCat = !catFilter || i.category === catFilter;
                 return matchesSearch && matchesCat;
             });
-
             document.getElementById('itemCount').textContent = `מציג ${filtered.length} מתוך ${state.items.length}`;
-
             const pinnedItems = filtered.filter(i => i.isPinned);
             const regularItems = filtered.filter(i => !i.isPinned);
-
             if (filtered.length === 0) {
                 container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-secondary);">לא נמצאו תוצאות</div>';
                 return;
             }
-
             if (pinnedItems.length > 0) {
                 const section = document.createElement('div');
                 section.className = 'category-block';
@@ -740,13 +732,11 @@
                 pinnedItems.forEach(i => grid.appendChild(createCard(i, i.visualIndex)));
                 container.appendChild(section);
             }
-
             const groups = {};
             regularItems.forEach(i => {
                 if(!groups[i.category]) groups[i.category] = [];
                 groups[i.category].push(i);
             });
-
             const sortedCategories = Object.keys(groups).sort((catA, catB) => {
                 if (sort === 'date-new') {
                     const itemA = groups[catA][0];
@@ -754,7 +744,6 @@
                     return itemB.date.localeCompare(itemA.date);
                 } else return catA.localeCompare(catB);
             });
-
             sortedCategories.forEach(cat => {
                 const groupItems = groups[cat];
                 const section = document.createElement('div');
@@ -771,7 +760,6 @@
                 container.appendChild(section);
             });
         }
-
         function createCard(item, displayNum) {
             const div = document.createElement('div');
             div.className = `card ${item.isPinned ? 'pinned' : ''}`;
@@ -780,7 +768,6 @@
                 ? `<a href="${safeContent}" class="card-link" target="_blank">${safeContent}</a>`
                 : `<div class="card-text-content">${safeContent}</div>`;
             const noteHtml = item.note ? `<div class="card-note">${escapeHtml(item.note)}</div>` : '';
-
             div.innerHTML = `
                 <div class="card-index">#${displayNum}</div>
                 <div class="card-body">
@@ -801,19 +788,16 @@
                     </div>
                 </div>
             `;
-            
             div.querySelector('.btn-copy').onclick = () => copyText(item.content);
             div.querySelector('.btn-edit').onclick = () => editItem(item);
             div.querySelector('.pin-btn').onclick = () => togglePin(item.id);
             div.querySelector('.trash-btn').onclick = () => moveToTrash(item.id);
             return div;
         }
-
         function handleAdd(e) {
             e.preventDefault();
             const content = document.getElementById('itemContent').value.trim();
             if (!content) return;
-            
             const newItem = {
                 id: Date.now(),
                 content,
@@ -824,32 +808,26 @@
                 type: URL_REGEX.test(content) ? 'link' : 'text',
                 isPinned: false
             };
-            
             state.items.unshift(newItem); 
             onDataChange();
             e.target.reset();
-            
             showToast('הפריט נוסף בהצלחה', () => {
                 state.items.shift();
                 onDataChange();
             });
         }
-
         function moveToTrash(id) {
             const idx = state.items.findIndex(i => i.id === id);
             if(idx === -1) return;
             const item = state.items[idx];
             item.deletedAt = new Date().toISOString();
-            
             state.trash.unshift(item);
             state.items.splice(idx, 1);
             onDataChange();
-            
             showToast('הועבר לסל המחזור', () => {
                 restoreFromTrash(item.id, false); 
             });
         }
-
         function togglePin(id) {
             const idx = state.items.findIndex(i => i.id === id);
             if (idx !== -1) { 
@@ -857,7 +835,6 @@
                 onDataChange(); 
             }
         }
-
         function editItem(item) {
             const oldItem = JSON.parse(JSON.stringify(item));
             const c = prompt('תוכן:', item.content);
@@ -868,28 +845,22 @@
             item.note = prompt('הערה:', item.note) || '';
             item.type = URL_REGEX.test(c) ? 'link' : 'text';
             onDataChange();
-            
             showToast('השינוי נשמר', () => {
                 const idx = state.items.findIndex(i => i.id === item.id);
                 if(idx !== -1) state.items[idx] = oldItem;
                 onDataChange();
             });
         }
-
         function onDataChange() { saveData(); updateCategoryDropdowns(); renderList(); }
-
         function showToast(msg, undoCallback) {
             const t = document.getElementById('toast');
             if (state.toastTimeout) clearTimeout(state.toastTimeout);
-            
             t.textContent = msg;
             t.classList.add('visible');
-            
             state.toastTimeout = setTimeout(() => {
                 t.classList.remove('visible');
             }, 3000);
         }
-
         function openTrashModal() {
             const list = document.getElementById('trashList');
             list.innerHTML = '';
@@ -908,7 +879,6 @@
             document.getElementById('trashModal').classList.add('open');
         }
         function closeTrashModal() { document.getElementById('trashModal').classList.remove('open'); }
-        
         function restoreFromTrash(id, notify = true) {
             const idx = state.trash.findIndex(i => i.id === id);
             if(idx === -1) return;
@@ -921,13 +891,11 @@
             renderList(); 
             if(notify) showToast('שוחזר');
         }
-        
         function deleteForever(id) {
             if(!confirm('למחוק לצמיתות?')) return;
             const idx = state.trash.findIndex(i => i.id === id);
             if(idx !== -1) { state.trash.splice(idx, 1); saveData(); openTrashModal(); }
         }
-
         function importJson(e) {
             const f = e.target.files[0];
             if(!f) return;
@@ -941,7 +909,6 @@
             };
             r.readAsText(f);
         }
-
         function smartImport(e) {
             const f = e.target.files[0];
             if (!f) return;
@@ -962,7 +929,6 @@
             };
             r.readAsText(f);
         }
-
         function exportJson() { downloadFile('backup.json', JSON.stringify({ items: state.items, trash: state.trash }, null, 2), 'application/json'); closeAllMenus(); }
         function exportTxt() { downloadFile('links.txt', state.items.map(i=>`${i.content} | ${i.description} | ${i.category}`).join('\n'), 'text/plain'); closeAllMenus(); }
         function downloadSite() { 
